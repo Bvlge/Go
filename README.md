@@ -1,2 +1,2 @@
-# go-financial-statistics
+# Go-financial-statistics
 Statistics Analysis made in Go

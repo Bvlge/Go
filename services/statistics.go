@@ -19,32 +19,37 @@ type FinancialStats struct {
 // GetFinancialStatistics calcula as estatísticas financeiras para um usuário e intervalo de datas.
 // Os parâmetros startDate e endDate devem estar no formato "YYYY-MM-DD".
 func GetFinancialStatistics(ctx context.Context, userID uint, startDate, endDate string) (*FinancialStats, error) {
-	var totalReceitas float64
-	var totalDespesas float64
+	var results []struct {
+		Type  string  `json:"type"`
+		Total float64 `json:"total"`
+	}
 
-	// Consulta para somar as receitas filtrando por usuário e intervalo de datas
+	log.Printf("Consultando estatísticas para user_id=%d entre %s e %s", userID, startDate, endDate)
+
 	err := database.DB.WithContext(ctx).
 		Model(&models.Transaction{}).
-		Where("type = ? AND user_id = ? AND date BETWEEN ? AND ?", "receita", userID, startDate, endDate).
-		Select("COALESCE(SUM(amount), 0)").
-		Row().
-		Scan(&totalReceitas)
+		Select("type, COALESCE(SUM(amount), 0) as total").
+		Where("user_id = ? AND date BETWEEN ? AND ?", userID, startDate, endDate).
+		Group("type").
+		Scan(&results).Error
+
 	if err != nil {
-		log.Printf("Erro ao calcular receitas: %v", err)
+		log.Println("Erro ao executar consulta SQL:", err)
 		return nil, err
 	}
 
-	// Consulta para somar as despesas filtrando por usuário e intervalo de datas
-	err = database.DB.WithContext(ctx).
-		Model(&models.Transaction{}).
-		Where("type = ? AND user_id = ? AND date BETWEEN ? AND ?", "despesa", userID, startDate, endDate).
-		Select("COALESCE(SUM(amount), 0)").
-		Row().
-		Scan(&totalDespesas)
-	if err != nil {
-		log.Printf("Erro ao calcular despesas: %v", err)
-		return nil, err
+	log.Printf("Resultados da consulta: %+v", results)
+
+	var totalReceitas, totalDespesas float64
+	for _, r := range results {
+		if r.Type == "receita" || r.Type == "income" {
+			totalReceitas = r.Total
+		} else if r.Type == "despesa" || r.Type == "expense" {
+			totalDespesas = r.Total
+		}
 	}
+
+	log.Printf("Total Receitas: %.2f, Total Despesas: %.2f, Saldo: %.2f", totalReceitas, totalDespesas, totalReceitas-totalDespesas)
 
 	return &FinancialStats{
 		TotalReceitas: totalReceitas,

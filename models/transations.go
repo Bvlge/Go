@@ -1,4 +1,3 @@
-// models/transactions.go
 package models
 
 import "time"
@@ -9,6 +8,11 @@ type Transaction struct {
 	Category    string    `json:"category"`
 	Description string    `json:"description"`
 	Date        time.Time `json:"date"`
-	Type        string    `json:"type"` // "receita" ou "despesa"
+	Type        string    `json:"type"` // "income" ou "expense"
 	UserID      uint      `json:"user_id"`
+}
+
+// Nome correto da tabela do banco
+func (Transaction) TableName() string {
+	return "transactions_transaction"
 }

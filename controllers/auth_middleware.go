@@ -1,14 +1,16 @@
-// controllers/auth_middleware.go
 package controllers
 
 import (
+	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
 )
 
-// AuthMiddleware é um exemplo de middleware para autenticação usando JWT.
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
@@ -18,20 +20,47 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		_ = tokenString // Remover este comentário após implementar a validação do token
 
-		// Aqui você deve implementar a validação do token.
-		// Exemplo:
-		// userID, err := validateToken(tokenString)
-		// if err != nil {
-		//     c.JSON(http.StatusUnauthorized, gin.H{"error": "Token inválido"})
-		//     c.Abort()
-		//     return
-		// }
-		// c.Set("userID", userID)
+		secretKey := os.Getenv("JWT_SECRET")
+		if secretKey == "" {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Chave JWT não configurada"})
+			c.Abort()
+			return
+		}
 
-		// Para fins de exemplo, vamos assumir que o token é válido e definir userID = 1.
-		c.Set("userID", uint(1))
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("método de assinatura inesperado: %v", token.Header["alg"])
+			}
+			return []byte(secretKey), nil
+		})
+
+		if err != nil || !token.Valid {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token inválido"})
+			c.Abort()
+			return
+		}
+
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token inválido"})
+			c.Abort()
+			return
+		}
+
+		// Verifica se o claim "user_id" está presente e é um número
+		userIDFloat, ok := claims["user_id"].(float64)
+		if !ok {
+			log.Println("Erro: user_id não encontrado no token")
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token inválido: user_id não encontrado"})
+			c.Abort()
+			return
+		}
+
+		userID := uint(userIDFloat)
+		log.Printf("Usuário autenticado: user_id=%d", userID)
+
+		c.Set("userID", userID)
 		c.Next()
 	}
 }

@@ -3,33 +3,39 @@ package controllers
 
 import (
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/JGMirand4/financial-statistics/services"
 	"github.com/gin-gonic/gin"
 )
 
-// GetStatistics lida com a requisição para obter estatísticas financeiras.
-// Parâmetros via query: ?user_id=1&start_date=2020-01-01&end_date=2020-12-31
 func GetStatistics(c *gin.Context) {
-	// Validação do parâmetro user_id (pode ser definido via middleware de autenticação)
-	userIDStr := c.Query("user_id")
-	if userIDStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Parâmetro user_id é obrigatório"})
+	// Recupera o userID do contexto (definido pelo AuthMiddleware)
+	userIDInterface, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Usuário não autenticado"})
 		return
 	}
-	userID, err := strconv.ParseUint(userIDStr, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id inválido"})
+	userID, ok := userIDInterface.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao identificar usuário"})
 		return
 	}
 
-	// Parâmetros opcionais para o intervalo de datas
-	startDate := c.DefaultQuery("start_date", "1970-01-01")
-	endDate := c.DefaultQuery("end_date", time.Now().Format("2006-01-02"))
+	// Tratamento e validação dos parâmetros de data
+	startDateStr := c.DefaultQuery("start_date", "1970-01-01")
+	endDateStr := c.DefaultQuery("end_date", time.Now().Format("2006-01-02"))
 
-	stats, err := services.GetFinancialStatistics(c.Request.Context(), uint(userID), startDate, endDate)
+	if _, err := time.Parse("2006-01-02", startDateStr); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de start_date inválido. Use YYYY-MM-DD"})
+		return
+	}
+	if _, err := time.Parse("2006-01-02", endDateStr); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de end_date inválido. Use YYYY-MM-DD"})
+		return
+	}
+
+	stats, err := services.GetFinancialStatistics(c.Request.Context(), userID, startDateStr, endDateStr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao calcular estatísticas"})
 		return

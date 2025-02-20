@@ -1,40 +1,51 @@
+// services/statistics.go
 package services
 
 import (
+	"context"
+	"log"
+
 	"github.com/JGMirand4/financial-statistics/database"
 	"github.com/JGMirand4/financial-statistics/models"
 )
 
+// FinancialStats armazena as estatísticas financeiras calculadas.
 type FinancialStats struct {
 	TotalReceitas float64 `json:"total_receitas"`
 	TotalDespesas float64 `json:"total_despesas"`
 	Saldo         float64 `json:"saldo"`
 }
 
-// Função para calcular estatísticas financeiras
-func GetFinancialStatistics() (*FinancialStats, error) {
+// GetFinancialStatistics calcula as estatísticas financeiras para um usuário e intervalo de datas.
+// Os parâmetros startDate e endDate devem estar no formato "YYYY-MM-DD".
+func GetFinancialStatistics(ctx context.Context, userID uint, startDate, endDate string) (*FinancialStats, error) {
 	var totalReceitas float64
 	var totalDespesas float64
 
-	// Calcula total de receitas
-	err := database.DB.Model(&models.Transaction{}).
-		Where("type = ?", "receita").
-		Select("SUM(amount)").
+	// Consulta para somar as receitas filtrando por usuário e intervalo de datas
+	err := database.DB.WithContext(ctx).
+		Model(&models.Transaction{}).
+		Where("type = ? AND user_id = ? AND date BETWEEN ? AND ?", "receita", userID, startDate, endDate).
+		Select("COALESCE(SUM(amount), 0)").
+		Row().
 		Scan(&totalReceitas)
-	if err.Error != nil {
-		return nil, err.Error
+	if err != nil {
+		log.Printf("Erro ao calcular receitas: %v", err)
+		return nil, err
 	}
 
-	// Calcula total de despesas
-	err = database.DB.Model(&models.Transaction{}).
-		Where("type = ?", "despesa").
-		Select("SUM(amount)").
+	// Consulta para somar as despesas filtrando por usuário e intervalo de datas
+	err = database.DB.WithContext(ctx).
+		Model(&models.Transaction{}).
+		Where("type = ? AND user_id = ? AND date BETWEEN ? AND ?", "despesa", userID, startDate, endDate).
+		Select("COALESCE(SUM(amount), 0)").
+		Row().
 		Scan(&totalDespesas)
-	if err.Error != nil {
-		return nil, err.Error
+	if err != nil {
+		log.Printf("Erro ao calcular despesas: %v", err)
+		return nil, err
 	}
 
-	// Retorna os valores
 	return &FinancialStats{
 		TotalReceitas: totalReceitas,
 		TotalDespesas: totalDespesas,

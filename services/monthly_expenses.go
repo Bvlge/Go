@@ -21,7 +21,7 @@ type CategoryExpense struct {
 func GetMonthlyCategoryExpenses(ctx context.Context, userID uint, startDate, endDate string) ([]CategoryExpense, error) {
 	var results []CategoryExpense
 
-	// A query abaixo utiliza a função DATE_TRUNC para agrupar as transações pelo mês.
+	// Seleciona e agrupa as transações do tipo "Loss" (despesas) por categoria e mês.
 	err := database.DB.WithContext(ctx).
 		Model(&models.Transaction{}).
 		Select(`category, 
@@ -29,8 +29,8 @@ func GetMonthlyCategoryExpenses(ctx context.Context, userID uint, startDate, end
 		        AVG(amount) as avg_expense,
 		        SUM(amount) as total_expense,
 		        COUNT(*) as count`).
-		Where("user_id = ? AND type IN ? AND date BETWEEN ? AND ?", userID, []string{"despesa", "expense"}, startDate, endDate).
-		Group("category, year_month").
+		Where("user_id = ? AND type = ? AND date BETWEEN ? AND ?", userID, "Loss", startDate, endDate).
+		Group("category, TO_CHAR(date, 'YYYY-MM')").
 		Order("year_month ASC").
 		Scan(&results).Error
 

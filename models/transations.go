@@ -8,7 +8,7 @@ type Transaction struct {
 	Category    string    `json:"category"`
 	Description string    `json:"description"`
 	Date        time.Time `json:"date"`
-	Type        string    `json:"type"` // "income" ou "expense"
+	Type        string    `json:"type"` // "Income" ou "Loss"
 	UserID      uint      `json:"user_id"`
 }
 

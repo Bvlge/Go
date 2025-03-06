@@ -19,8 +19,8 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		secretKey := os.Getenv("JWT_SECRET")
 		if secretKey == "" {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Chave JWT não configurada"})
@@ -29,7 +29,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			if token.Method != jwt.SigningMethodHS256 {
 				return nil, fmt.Errorf("método de assinatura inesperado: %v", token.Header["alg"])
 			}
 			return []byte(secretKey), nil
@@ -48,7 +48,6 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Verifica se o claim "user_id" está presente e é um número
 		userIDFloat, ok := claims["user_id"].(float64)
 		if !ok {
 			log.Println("Erro: user_id não encontrado no token")
@@ -59,7 +58,6 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		userID := uint(userIDFloat)
 		log.Printf("Usuário autenticado: user_id=%d", userID)
-
 		c.Set("userID", userID)
 		c.Next()
 	}

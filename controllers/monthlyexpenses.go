@@ -1,4 +1,3 @@
-// controllers/statistics_controller.go
 package controllers
 
 import (
@@ -9,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func GetStatistics(c *gin.Context) {
+func GetMonthlyCategoryExpenses(c *gin.Context) {
 	userIDInterface, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Usuário não autenticado"})
@@ -22,7 +21,8 @@ func GetStatistics(c *gin.Context) {
 		return
 	}
 
-	startDateStr := c.DefaultQuery("start_date", "1970-01-01")
+	// Parâmetros de data
+	startDateStr := c.DefaultQuery("start_date", "2023-01-01")
 	endDateStr := c.DefaultQuery("end_date", time.Now().Format("2006-01-02"))
 
 	if _, err := time.Parse("2006-01-02", startDateStr); err != nil {
@@ -35,11 +35,11 @@ func GetStatistics(c *gin.Context) {
 		return
 	}
 
-	stats, err := services.GetFinancialStatistics(c.Request.Context(), userID, startDateStr, endDateStr)
+	results, err := services.GetMonthlyCategoryExpenses(c.Request.Context(), userID, startDateStr, endDateStr)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao calcular estatísticas"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao calcular estatísticas por categoria"})
 		return
 	}
 
-	c.JSON(http.StatusOK, stats)
+	c.JSON(http.StatusOK, results)
 }

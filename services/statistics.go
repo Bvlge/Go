@@ -4,6 +4,7 @@ package services
 import (
 	"context"
 	"log"
+	"strings"
 
 	"github.com/JGMirand4/financial-statistics/database"
 	"github.com/JGMirand4/financial-statistics/models"
@@ -34,26 +35,26 @@ func GetFinancialStatistics(ctx context.Context, userID uint, startDate, endDate
 		Scan(&results).Error
 
 	if err != nil {
-		log.Println("Erro ao executar consulta SQL:", err)
+		log.Printf("Erro ao executar consulta SQL: %v", err)
 		return nil, err
 	}
 
-	log.Printf("Resultados da consulta: %+v", results)
-
 	var totalReceitas, totalDespesas float64
 	for _, r := range results {
-		if r.Type == "receita" || r.Type == "income" {
+		switch strings.ToLower(r.Type) {
+		case "income", "receita":
 			totalReceitas = r.Total
-		} else if r.Type == "despesa" || r.Type == "expense" {
+		case "expense", "despesa":
 			totalDespesas = r.Total
 		}
 	}
 
-	log.Printf("Total Receitas: %.2f, Total Despesas: %.2f, Saldo: %.2f", totalReceitas, totalDespesas, totalReceitas-totalDespesas)
+	saldo := totalReceitas - totalDespesas
+	log.Printf("Total Receitas: %.2f, Total Despesas: %.2f, Saldo: %.2f", totalReceitas, totalDespesas, saldo)
 
 	return &FinancialStats{
 		TotalReceitas: totalReceitas,
 		TotalDespesas: totalDespesas,
-		Saldo:         totalReceitas - totalDespesas,
+		Saldo:         saldo,
 	}, nil
 }

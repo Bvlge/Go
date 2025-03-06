@@ -33,6 +33,7 @@ func main() {
 	// Cria um grupo de rotas que requerem autenticação
 	protected := r.Group("/", controllers.AuthMiddleware())
 	protected.GET("/statistics", controllers.GetStatistics)
+	protected.GET("/category-expenses", controllers.GetMonthlyCategoryExpenses)
 
 	// Iniciar o servidor na porta definida (ou padrão 8080)
 	port := os.Getenv("PORT")

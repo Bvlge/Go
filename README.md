@@ -22,29 +22,35 @@ Este módulo em Go é parte integrante de uma plataforma de controle financeiro 
 
 ## Objetivo
 
-Desenvolver um microserviço para:
-- **Validação de JWT:** Assegurar que somente usuários autenticados acessem os dados.
-- **Cálculo de Estatísticas Financeiras:** Agregar e calcular receitas, despesas e saldo com base em um intervalo de datas especificado.
-- **Integração com Banco de Dados:** Utilizar o GORM para conexão com bancos de dados PostgreSQL ou MySQL e realizar migrações de modelos.
+Desenvolver uma plataforma para controle financeiro que permita aos usuários:
+- **Monitorar receitas e despesas:** Cadastro detalhado com classificação por categorias (ex.: Salário, Alimentação, Moradia, Transporte, Lazer, Investimentos).
+- **Visualizar fluxo de caixa:** Painel com resumo financeiro, comparativos e evolução do saldo ao longo do tempo.
+- **Gerar relatórios analíticos:** Relatórios e dashboards com gráficos interativos e indicadores de performance.
+- **Integrar com outras tecnologias:** Uso de Open Banking, API de conversão de moedas, modo offline com sincronização posterior.
+
+No módulo em Go, o foco é na autenticação via JWT e no cálculo das estatísticas financeiras a partir das transações cadastradas.
 
 ---
 
 ## Principais Funcionalidades
 
 1. **Autenticação via JWT**  
-   - Verifica a presença e validade do token de autenticação.
-   - Extrai o `user_id` dos claims do token para identificar o usuário.
+   - Validação do token presente no header `Authorization`.
+   - Extração do `user_id` dos claims do token para identificar o usuário.
+   - Respostas de erro apropriadas em casos de token ausente ou inválido.
 
-2. **Cálculo de Estatísticas**  
-   - Consulta as transações financeiras do usuário no banco de dados.
-   - Agrupa os valores por tipo (receita/income e despesa/expense).
-   - Retorna as estatísticas: Total de receitas, total de despesas e saldo.
+2. **Cálculo de Estatísticas Financeiras**  
+   - Consulta e agregação dos dados financeiros com base em um intervalo de datas.
+   - Cálculo do total de receitas (Income) e despesas (Loss).
+   - Determinação do saldo, categoria de despesa mais frequente, número total de transações e média das transações.
 
-3. **Tratamento de Datas**  
-   - Permite filtrar transações através de parâmetros `start_date` e `end_date` (formato: `YYYY-MM-DD`).
+3. **Cadastro e Consulta de Transações**  
+   - Registro de transações com detalhamento de data, status, recorrência, tipo de pagamento e anexos.
+   - Agrupamento dos dados por categoria e mês para análise dos gastos.
 
-4. **Configuração do Pool de Conexões**  
-   - Otimiza o acesso ao banco de dados através da configuração adequada do pool de conexões.
+4. **Configuração Otimizada do Banco de Dados**  
+   - Uso do GORM para gerenciar a conexão e migrações em bancos PostgreSQL ou MySQL.
+   - Configuração do pool de conexões para melhorar a performance.
 
 ---
 
@@ -53,26 +59,29 @@ Desenvolver um microserviço para:
 | **Módulo**                        | **Tecnologia**                              | **Descrição**                                                    |
 | --------------------------------- | ------------------------------------------- | ---------------------------------------------------------------- |
 | **HTTP Server**                   | [Gin](https://github.com/gin-gonic/gin)     | Roteamento e criação de APIs RESTful.                            |
-| **Autenticação**                  | [JWT](https://github.com/golang-jwt/jwt)      | Validação e gerenciamento de tokens de autenticação.             |
+| **Autenticação**                  | [JWT](https://github.com/golang-jwt/jwt)      | Validação e gerenciamento dos tokens de autenticação.            |
 | **ORM e Banco de Dados**          | [GORM](https://gorm.io/)                     | Conexão e migração com bancos de dados PostgreSQL/MySQL.         |
-| **Ambiente e Configuração**       | [godotenv](https://github.com/joho/godotenv)  | Carregamento de variáveis de ambiente a partir de um arquivo `.env`. |
+| **Gerenciamento de Variáveis**    | [godotenv](https://github.com/joho/godotenv)  | Carregamento de variáveis de ambiente a partir do arquivo `.env`.  |
+| **Processamento Estatístico**     | Go (serviços customizados)                  | Cálculo e agregação de dados financeiros para dashboards e relatórios. |
 
 ---
 
 ## Estrutura do Projeto
 
-```
+```plaintext
 financial-statistics/
 ├── controllers/
 │   ├── auth_middleware.go        # Middleware para validação de JWT
-│   └── statistics_controller.go  # Controlador para calcular estatísticas financeiras
+│   ├── monthlyexpenses.go        # Controlador para consulta de despesas mensais por categoria
+│   └── statistics_controller.go  # Controlador para cálculo das estatísticas financeiras
 ├── database/
 │   └── database.go               # Conexão e configuração do banco de dados
 ├── models/
 │   └── transactions.go           # Modelo da transação financeira
 ├── services/
-│   └── statistics.go             # Lógica para cálculo das estatísticas financeiras
-├── main.go                       # Configuração e inicialização do servidor
+│   ├── statistics.go             # Lógica para cálculo das estatísticas financeiras
+│   └── monthly_expenses.go       # Lógica para cálculo de despesas mensais por categoria
+├── main.go                       # Inicialização e configuração do servidor
 └── .env                          # Arquivo de configuração de variáveis de ambiente (não incluso no repositório)
 ```
 
@@ -85,7 +94,7 @@ financial-statistics/
 - Variáveis de ambiente definidas:
   - `DATABASE_DSN`: DSN para conexão com o banco de dados.
   - `JWT_SECRET`: Chave secreta para assinatura dos tokens JWT.
-  - `PORT` (opcional): Porta na qual o servidor irá rodar (padrão: 8080).
+  - `PORT` (opcional): Porta para execução do servidor (padrão: 8080).
 
 ---
 
@@ -130,7 +139,7 @@ financial-statistics/
 
 2. **Verifique os Logs**
 
-   O servidor deverá iniciar e conectar ao banco de dados. Se `JWT_SECRET` não estiver definido, um valor padrão será utilizado.
+   O servidor deverá iniciar, conectar ao banco de dados e, se necessário, utilizar um valor padrão para `JWT_SECRET` se não estiver definido.
 
 ---
 
@@ -150,7 +159,10 @@ financial-statistics/
   {
     "total_receitas": 10000.00,
     "total_despesas": 7500.00,
-    "saldo": 2500.00
+    "saldo": 2500.00,
+    "categoria_mais_frequente": "Alimentação",
+    "total_transacoes": 50,
+    "media_transacao": 500.00
   }
   ```
 
@@ -160,35 +172,58 @@ financial-statistics/
   curl -H "Authorization: Bearer SEU_TOKEN_AQUI" "http://localhost:8080/statistics?start_date=2023-01-01&end_date=2023-12-31"
   ```
 
+### GET `/statistics/category-expenses`
+
+- **Descrição:** Retorna a média e total das despesas agrupadas por categoria e mês para o usuário autenticado.
+- **Parâmetros de Query:**
+  - `start_date` (opcional): Data de início (formato `YYYY-MM-DD`). Padrão: `2023-01-01`.
+  - `end_date` (opcional): Data de fim (formato `YYYY-MM-DD`). Padrão: data atual.
+- **Headers:**
+  - `Authorization: Bearer <token>`
+- **Resposta de Sucesso:**
+
+  ```json
+  [
+    {
+      "category": "Alimentação",
+      "year_month": "2023-03",
+      "avg_expense": 250.00,
+      "total_expense": 1250.00,
+      "count": 5
+    }
+  ]
+  ```
+
 ---
 
 ## Fluxo de Dados e Integração
 
-O módulo GO integra-se à arquitetura geral da plataforma de controle financeiro conforme o seguinte fluxo:
-
 1. **Autenticação:**  
-   - O usuário realiza login na interface (ex.: React) e obtém um token JWT.
+   - O usuário realiza login na interface (ex.: React) e recebe um token JWT.
 2. **Envio do Token:**  
-   - O cliente armazena o token e o utiliza para realizar requisições autenticadas.
+   - O cliente utiliza o token para realizar requisições aos endpoints protegidos.
 3. **Processamento no Módulo Go:**  
-   - O middleware valida o token, extrai o `user_id` e permite acesso ao endpoint `/statistics`.
-   - O controlador consulta o banco de dados e utiliza o serviço para calcular as estatísticas.
+   - O middleware valida o token, extrai o `user_id` e permite o acesso aos endpoints.
+   - Os controladores (ex.: `/statistics` e `/statistics/category-expenses`) processam as requisições, consultam o banco de dados e acionam os serviços para realizar os cálculos necessários.
 4. **Retorno ao Cliente:**  
-   - As estatísticas financeiras são retornadas para a interface do usuário para visualização e análise.
-
-> **Diagrama do Sistema**  
-> ![Diagrama do Sistema](./Diagram.png)
+   - Os resultados das estatísticas financeiras são enviados de volta para a interface do usuário para visualização e análise.
 
 ---
 
 ## Contribuição
 
-Contribuições são bem-vindas! Se desejar melhorar o projeto, siga as diretrizes abaixo:
+Contribuições são bem-vindas! Para contribuir:
 
 1. Faça um fork do repositório.
-2. Crie uma branch com a sua feature: `git checkout -b minha-feature`.
-3. Realize suas alterações e faça commits com mensagens claras.
-4. Envie suas alterações com `git push origin minha-feature`.
+2. Crie uma branch com sua feature:  
+   ```bash
+   git checkout -b minha-feature
+   ```
+3. Realize as alterações e faça commits com mensagens claras.
+4. Envie suas alterações:  
+   ```bash
+   git push origin minha-feature
+   ```
 5. Abra um Pull Request para revisão.
 
 ---
@@ -198,5 +233,3 @@ Contribuições são bem-vindas! Se desejar melhorar o projeto, siga as diretriz
 Este projeto está licenciado sob a [MIT License](LICENSE).
 
 ---
-
-Este README fornece uma visão abrangente do módulo GO para controle financeiro, detalhando sua configuração, execução e integração com a plataforma. Caso tenha dúvidas ou sugestões, sinta-se à vontade para entrar em contato ou abrir uma issue no repositório.
